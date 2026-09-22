@@ -644,6 +644,14 @@
         // ========================================================
         // 4. การส่งข้อมูลขึ้น Google Sheets
         // ========================================================
+        function getCompletionStatus(startDate, endDate) {
+            if (!startDate || !endDate) return '-';
+            const sameDay = startDate.getFullYear() === endDate.getFullYear() &&
+                             startDate.getMonth() === endDate.getMonth() &&
+                             startDate.getDate() === endDate.getDate();
+            return sameDay ? 'จบภายในวัน' : 'ไม่จบภายในวัน';
+        }
+
         async function saveOnlineData(grouped, normalizedRows) {
             if (!GOOGLE_SCRIPT_URL) return;
 
@@ -656,7 +664,8 @@
                     trans: g.trans,
                     min: g.min ? g.min.toLocaleString('th-TH') : '-',
                     max: g.max ? g.max.toLocaleString('th-TH') : '-',
-                    mins: (g.min && g.max) ? Math.floor((g.max - g.min) / 60000) : 0
+                    mins: (g.min && g.max) ? Math.floor((g.max - g.min) / 60000) : 0,
+                    status: getCompletionStatus(g.min, g.max)
                 };
             });
 
