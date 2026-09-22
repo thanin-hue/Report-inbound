@@ -111,7 +111,7 @@
                             <tr>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ASN</th>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">งาน</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ผู้สร้าง</th>
+                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Transaction</th>
                                 <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Qty</th>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">เวลาเริ่ม</th>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">เวลาจบ</th>
@@ -127,19 +127,29 @@
         <section id="tab2" class="tab-content hidden space-y-6">
             <div id="visualSectionD" class="space-y-6">
                 <div class="bg-white p-6 rounded-lg shadow-md">
-                    <h2 class="text-xl font-bold mb-4 text-blue-900 border-b pb-2">สรุปภาพรวม Matrix (Daily)</h2>
+                    <h2 class="text-xl font-bold mb-4 text-blue-900 border-b pb-2">สรุปจำนวนสินค้าตามช่วงเวลา (Daily)</h2>
                     <div class="overflow-x-auto">
                         <div id="matrixContainerD"></div>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="text-lg font-bold mb-4 text-gray-700">แนวโน้มปริมาณงาน (Qty) เทียบจำนวนรายการ (บรรทัด) ตามช่วงเวลา</h3>
+                    <div style="height: 240px;">
+                        <canvas id="trendChartD"></canvas>
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="bg-white p-6 rounded-lg shadow-md">
                         <h3 class="text-lg font-bold mb-4 text-gray-700">ปริมาณงานตามชั่วโมง</h3>
-                        <canvas id="hourlyChartD"></canvas>
+                        <div style="height: 200px;">
+                            <canvas id="hourlyChartD"></canvas>
+                        </div>
                     </div>
                     <div class="bg-white p-6 rounded-lg shadow-md">
                         <h3 class="text-lg font-bold mb-4 text-gray-700">สัดส่วนงานตามประเภท</h3>
-                        <canvas id="jobChartD"></canvas>
+                        <div style="height: 200px;">
+                            <canvas id="jobChartD"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -275,8 +285,10 @@
             reader.readAsArrayBuffer(file);
         });
 
+        const JOB_OPTIONS = ['Vender', 'HWH', 'DCR', 'งานโอน', 'อื่นๆ'];
+
         function showJobNameForm(jsonData) {
-            // แตก ASN ที่พบทั้งหมดในไฟล์ ให้ผู้ใช้กรอกชื่องานแยกทีละ ASN
+            // แตก ASN ที่พบทั้งหมดในไฟล์ ให้ผู้ใช้เลือกชื่องานแยกทีละ ASN
             const asnList = [...new Set(jsonData.map(getAsnFromRow))];
 
             const formBody = document.getElementById('jobNameFormBody');
@@ -284,11 +296,30 @@
 
             asnList.forEach(asn => {
                 const row = document.createElement('div');
-                row.className = 'flex items-center gap-3';
+                row.className = 'job-name-row flex items-center gap-3 flex-wrap';
+
+                const optionsHtml = `<option value="">-- เลือกชื่องาน --</option>` +
+                    JOB_OPTIONS.map(opt => `<option value="${opt}">${opt}</option>`).join('');
+
                 row.innerHTML = `
                     <span class="w-40 shrink-0 text-sm font-semibold text-gray-700 truncate" title="${asn}">${asn}</span>
-                    <input type="text" class="job-name-input flex-1 text-sm text-gray-700 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" data-asn="${asn}" placeholder="ระบุชื่องานสำหรับ ASN นี้">
+                    <select class="job-select text-sm text-gray-700 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" data-asn="${asn}">
+                        ${optionsHtml}
+                    </select>
+                    <input type="text" class="job-other-input hidden flex-1 text-sm text-gray-700 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" data-asn="${asn}" placeholder="ระบุชื่องาน">
                 `;
+
+                const select = row.querySelector('.job-select');
+                const otherInput = row.querySelector('.job-other-input');
+                select.addEventListener('change', function() {
+                    if (select.value === 'อื่นๆ') {
+                        otherInput.classList.remove('hidden');
+                    } else {
+                        otherInput.classList.add('hidden');
+                        otherInput.value = '';
+                    }
+                });
+
                 formBody.appendChild(row);
             });
 
@@ -296,17 +327,25 @@
         }
 
         document.getElementById('confirmJobBtn').addEventListener('click', function() {
-            const inputs = document.querySelectorAll('#jobNameFormBody .job-name-input');
+            const rows = document.querySelectorAll('#jobNameFormBody .job-name-row');
             const jobMap = {};
             let hasEmpty = false;
 
-            inputs.forEach(input => {
-                const val = input.value.trim();
+            rows.forEach(row => {
+                const select = row.querySelector('.job-select');
+                const otherInput = row.querySelector('.job-other-input');
+                const asn = select.dataset.asn;
+
+                let val = select.value;
+                if (val === 'อื่นๆ') {
+                    val = otherInput.value.trim();
+                }
+
                 if (!val) hasEmpty = true;
-                jobMap[input.dataset.asn] = val || '-';
+                jobMap[asn] = val || '-';
             });
 
-            if (hasEmpty && !confirm("มี ASN ที่ยังไม่ได้กรอกชื่องาน ต้องการประมวลผลต่อโดยให้ ASN เหล่านั้นแสดงเป็น '-' หรือไม่?")) {
+            if (hasEmpty && !confirm("มี ASN ที่ยังไม่ได้เลือก/กรอกชื่องาน ต้องการประมวลผลต่อโดยให้ ASN เหล่านั้นแสดงเป็น '-' หรือไม่?")) {
                 return;
             }
 
@@ -321,7 +360,7 @@
                 const user = row['Created By'] || row['User'] || row['user'] || row['Worker'] || 'Unassigned';
                 
                 const rDateRaw = row['Received Date'] || row['ReceivedDate'] || row['Start Time'] || row['Received_Date'] || row['Date'] || row['วันที่'];
-                const uDateRaw = row['Close Date'] || row['CloseDate'] || row['End Time'] || row['Close_Date'] || row['วันที่เสร็จ'];
+                const uDateRaw = row['Close Date'] || row['CloseDate'] || row['End Time'] || row['Close_Date'] || row['วันที่เสร็จ'] || row['Date Updated'] || row['Updated Date'];
 
                 return {
                     asn: asn,
@@ -440,7 +479,7 @@
                 tr.innerHTML = `
                     <td class="px-4 py-2 font-semibold text-blue-600">${g.asn}</td>
                     <td class="px-4 py-2">${g.job}</td>
-                    <td class="px-4 py-2">${g.user}</td>
+                    <td class="px-4 py-2 text-right">${g.trans.toLocaleString()}</td>
                     <td class="px-4 py-2 text-right font-bold">${g.qty.toLocaleString()}</td>
                     <td class="px-4 py-2 text-gray-500">${g.min ? g.min.toLocaleTimeString('th-TH') : '-'}</td>
                     <td class="px-4 py-2 text-gray-500">${g.max ? g.max.toLocaleTimeString('th-TH') : '-'}</td>
@@ -453,16 +492,18 @@
 
         function buildMatrixModel(rows) {
             const hourly = Array(24).fill(0);
+            const lineCount = Array(24).fill(0);
             const jobs = {};
 
             rows.forEach(r => {
                 const hour = r.rDate.getHours();
                 hourly[hour] += r.qty;
+                lineCount[hour] += 1;
 
                 jobs[r.job] = (jobs[r.job] || 0) + r.qty;
             });
 
-            return { hourly, jobs };
+            return { hourly, lineCount, jobs };
         }
 
         function renderMatrixDashboard(prefix, model) {
@@ -487,7 +528,46 @@
             }
         }
 
+        let trendChartDInstance = null;
+
         function renderCharts(model) {
+            const ctxT = document.getElementById('trendChartD').getContext('2d');
+            if (trendChartDInstance) trendChartDInstance.destroy();
+
+            trendChartDInstance = new Chart(ctxT, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 24}, (_, i) => `${String(i).padStart(2, '0')}:00`),
+                    datasets: [
+                        {
+                            label: 'ปริมาณงาน (Qty)',
+                            data: model.hourly,
+                            borderColor: '#3b82f6',
+                            backgroundColor: '#3b82f6',
+                            yAxisID: 'y',
+                            tension: 0.3
+                        },
+                        {
+                            label: 'จำนวนรายการ (บรรทัด)',
+                            data: model.lineCount,
+                            borderColor: '#f59e0b',
+                            backgroundColor: '#f59e0b',
+                            yAxisID: 'y1',
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        y: { type: 'linear', position: 'left', title: { display: true, text: 'Qty' }, beginAtZero: true },
+                        y1: { type: 'linear', position: 'right', title: { display: true, text: 'จำนวนรายการ' }, beginAtZero: true, grid: { drawOnChartArea: false } }
+                    }
+                }
+            });
+
             const ctxH = document.getElementById('hourlyChartD').getContext('2d');
             if (hourlyChartDInstance) hourlyChartDInstance.destroy();
 
