@@ -63,13 +63,24 @@
                     <i class="fa-solid fa-upload"></i> อัปโหลดไฟล์ Excel / CSV
                 </h2>
                 <div class="flex flex-wrap items-center gap-4">
-                    <input type="text" id="jobNameInput" placeholder="ระบุชื่องาน เช่น รับเข้า NDC รอบเช้า" class="block w-full max-w-xs text-sm text-gray-700 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer max-w-md">
                     <button id="processBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md shadow transition">
-                        <i class="fa-solid fa-gear mr-1"></i> ประมวลผลข้อมูล
+                        <i class="fa-solid fa-gear mr-1"></i> อัปโหลดไฟล์
                     </button>
                 </div>
                 <div id="fileInfo" class="mt-4 text-sm text-gray-600"></div>
+            </div>
+
+            <!-- Job Name Assignment per ASN -->
+            <div id="jobNameSection" class="bg-white p-6 rounded-lg shadow-md hidden">
+                <h2 class="text-xl font-bold mb-2 text-blue-900 border-b pb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-tags"></i> ระบุชื่องานของแต่ละ ASN
+                </h2>
+                <p class="text-sm text-gray-500 mb-4">พบหลาย ASN ในไฟล์นี้ กรุณากรอกชื่องานให้แต่ละ ASN ก่อนประมวลผล</p>
+                <div id="jobNameFormBody" class="space-y-3 max-h-80 overflow-y-auto pr-2"></div>
+                <button id="confirmJobBtn" class="mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-md shadow transition">
+                    <i class="fa-solid fa-check mr-1"></i> ยืนยันและประมวลผลข้อมูล
+                </button>
             </div>
 
             <div id="summaryCards" class="grid grid-cols-1 md:grid-cols-4 gap-4 hidden">
@@ -216,6 +227,7 @@
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwXmcXz4AniqndnsqzRYwvxHK-pejVxSjc5HEACCmrRXOXxp1R_wi05iCrNElSvPGIL/exec";
 
         let currentRawData = [];
+        let pendingJsonData = [];
         let hourlyChartDInstance = null;
         let jobChartDInstance = null;
 
@@ -227,17 +239,15 @@
             document.getElementById('btn-' + tabId).classList.add('active');
         }
 
+        function getAsnFromRow(row) {
+            return String(row['ASN/Receipt'] || row['ASN'] || row['asn'] || row['Asn'] || '-').trim();
+        }
+
         // ========================================================
         // 2. การประมวลผลไฟล์ Excel / CSV (Tab 1)
         // ========================================================
         document.getElementById('processBtn').addEventListener('click', function() {
             const fileInput = document.getElementById('excelFile');
-            const jobName = document.getElementById('jobNameInput').value.trim();
-
-            if (!jobName) {
-                alert("กรุณาระบุชื่องานก่อนครับ");
-                return;
-            }
             if (!fileInput.files.length) {
                 alert("กรุณาเลือกไฟล์ Excel หรือ CSV ก่อนครับ");
                 return;
@@ -257,16 +267,56 @@
                     return;
                 }
 
-                processRawData(jsonData, jobName);
+                pendingJsonData = jsonData;
+                document.getElementById('fileInfo').innerText = `โหลดไฟล์ "${file.name}" แล้ว (${jsonData.length} แถว) — กรอกชื่องานด้านล่างแล้วกดยืนยัน`;
+                showJobNameForm(jsonData);
             };
 
             reader.readAsArrayBuffer(file);
         });
 
-        function processRawData(data, jobName) {
+        function showJobNameForm(jsonData) {
+            // แตก ASN ที่พบทั้งหมดในไฟล์ ให้ผู้ใช้กรอกชื่องานแยกทีละ ASN
+            const asnList = [...new Set(jsonData.map(getAsnFromRow))];
+
+            const formBody = document.getElementById('jobNameFormBody');
+            formBody.innerHTML = '';
+
+            asnList.forEach(asn => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-3';
+                row.innerHTML = `
+                    <span class="w-40 shrink-0 text-sm font-semibold text-gray-700 truncate" title="${asn}">${asn}</span>
+                    <input type="text" class="job-name-input flex-1 text-sm text-gray-700 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" data-asn="${asn}" placeholder="ระบุชื่องานสำหรับ ASN นี้">
+                `;
+                formBody.appendChild(row);
+            });
+
+            document.getElementById('jobNameSection').classList.remove('hidden');
+        }
+
+        document.getElementById('confirmJobBtn').addEventListener('click', function() {
+            const inputs = document.querySelectorAll('#jobNameFormBody .job-name-input');
+            const jobMap = {};
+            let hasEmpty = false;
+
+            inputs.forEach(input => {
+                const val = input.value.trim();
+                if (!val) hasEmpty = true;
+                jobMap[input.dataset.asn] = val || '-';
+            });
+
+            if (hasEmpty && !confirm("มี ASN ที่ยังไม่ได้กรอกชื่องาน ต้องการประมวลผลต่อโดยให้ ASN เหล่านั้นแสดงเป็น '-' หรือไม่?")) {
+                return;
+            }
+
+            processRawData(pendingJsonData, jobMap);
+        });
+
+        function processRawData(data, jobMap) {
             const normalizedRows = data.map(row => {
-                const asn = row['ASN/Receipt'] || row['ASN'] || row['asn'] || row['Asn'] || '-';
-                const job = jobName || '-';
+                const asn = getAsnFromRow(row);
+                const job = (jobMap && jobMap[asn]) || '-';
                 const qty = parseFloat(row['Received Qty'] || row['Qty'] || row['qty'] || 0);
                 const user = row['Created By'] || row['User'] || row['user'] || row['Worker'] || 'Unassigned';
                 
@@ -274,7 +324,7 @@
                 const uDateRaw = row['Close Date'] || row['CloseDate'] || row['End Time'] || row['Close_Date'] || row['วันที่เสร็จ'];
 
                 return {
-                    asn: String(asn).trim(),
+                    asn: asn,
                     job: String(job).trim(),
                     qty: isNaN(qty) ? 0 : qty,
                     user: String(user).trim(),
