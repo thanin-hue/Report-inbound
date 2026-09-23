@@ -390,13 +390,15 @@
                         qty: 0,
                         trans: 0,
                         min: r.rDate,
-                        max: r.uDate || r.rDate
+                        max: r.uDate || null   // null = ยังไม่พบเวลาจบเลยสักแถวในกลุ่มนี้
                     };
                 }
                 grouped[r.asn].qty += r.qty;
                 grouped[r.asn].trans += 1;
                 if (r.rDate < grouped[r.asn].min) grouped[r.asn].min = r.rDate;
-                if (r.uDate && r.uDate > grouped[r.asn].max) grouped[r.asn].max = r.uDate;
+                if (r.uDate && (!grouped[r.asn].max || r.uDate > grouped[r.asn].max)) {
+                    grouped[r.asn].max = r.uDate;
+                }
             });
 
             renderSummaryCards(normalizedRows, grouped);
@@ -482,7 +484,7 @@
                     <td class="px-4 py-2 text-right">${g.trans.toLocaleString()}</td>
                     <td class="px-4 py-2 text-right font-bold">${g.qty.toLocaleString()}</td>
                     <td class="px-4 py-2 text-gray-500">${g.min ? g.min.toLocaleTimeString('th-TH') : '-'}</td>
-                    <td class="px-4 py-2 text-gray-500">${g.max ? g.max.toLocaleTimeString('th-TH') : '-'}</td>
+                    <td class="px-4 py-2 text-gray-500">${g.max ? g.max.toLocaleTimeString('th-TH') : '0'}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -645,7 +647,7 @@
         // 4. การส่งข้อมูลขึ้น Google Sheets
         // ========================================================
         function getCompletionStatus(startDate, endDate) {
-            if (!startDate || !endDate) return '-';
+            if (!startDate || !endDate) return 'ไม่จบภายในวัน';
             const sameDay = startDate.getFullYear() === endDate.getFullYear() &&
                              startDate.getMonth() === endDate.getMonth() &&
                              startDate.getDate() === endDate.getDate();
@@ -663,7 +665,7 @@
                     qty: g.qty, 
                     trans: g.trans,
                     min: g.min ? g.min.toLocaleString('th-TH') : '-',
-                    max: g.max ? g.max.toLocaleString('th-TH') : '-',
+                    max: g.max ? g.max.toLocaleString('th-TH') : '0',
                     mins: (g.min && g.max) ? Math.floor((g.max - g.min) / 60000) : 0,
                     status: getCompletionStatus(g.min, g.max)
                 };
@@ -686,11 +688,21 @@
                 });
                 
                 const json = await response.json();
+                const fileInfoEl = document.getElementById('fileInfo');
                 if (json.status === 'success') {
                     console.log("Online backup success:", json);
+                } else {
+                    console.error("Online backup error:", json);
+                    if (fileInfoEl) {
+                        fileInfoEl.innerHTML += `<div class="text-red-600 mt-1"><i class="fa-solid fa-triangle-exclamation"></i> บันทึกขึ้น Google Sheet ไม่สำเร็จ: ${json.message || 'ไม่ทราบสาเหตุ'}</div>`;
+                    }
                 }
             } catch (err) {
                 console.warn("Save online finished with notice:", err);
+                const fileInfoEl = document.getElementById('fileInfo');
+                if (fileInfoEl) {
+                    fileInfoEl.innerHTML += `<div class="text-red-600 mt-1"><i class="fa-solid fa-triangle-exclamation"></i> เชื่อมต่อ Google Sheet ไม่สำเร็จ: ${err.message}</div>`;
+                }
             }
         }
 
