@@ -104,7 +104,12 @@
 
             <!-- Previews Table -->
             <div id="previewSection" class="bg-white p-6 rounded-lg shadow-md hidden">
-                <h3 class="text-lg font-bold mb-4 text-gray-700">ตัวอย่างข้อมูลที่ประมวลผลแล้ว</h3>
+                <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
+                    <h3 class="text-lg font-bold text-gray-700">ตัวอย่างข้อมูลที่ประมวลผลแล้ว</h3>
+                    <button id="exportTab1Btn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-md shadow text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-file-excel"></i> Export Excel
+                    </button>
+                </div>
                 <div class="overflow-x-auto max-h-96">
                     <table class="min-w-full divide-y divide-gray-200 text-sm">
                         <thead class="bg-gray-50 sticky top-0">
@@ -127,7 +132,12 @@
         <section id="tab2" class="tab-content hidden space-y-6">
             <div id="visualSectionD" class="space-y-6">
                 <div class="bg-white p-6 rounded-lg shadow-md">
-                    <h2 class="text-xl font-bold mb-4 text-blue-900 border-b pb-2">สรุปจำนวนสินค้าตามช่วงเวลา (Daily)</h2>
+                    <div class="flex flex-wrap justify-between items-center mb-4 gap-2 border-b pb-2">
+                        <h2 class="text-xl font-bold text-blue-900">สรุปจำนวนสินค้าตามช่วงเวลา (Daily)</h2>
+                        <button id="exportTab2Btn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-md shadow text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-file-excel"></i> Export Excel
+                        </button>
+                    </div>
                     <div class="overflow-x-auto">
                         <div id="matrixContainerD"></div>
                     </div>
@@ -158,7 +168,12 @@
         <!-- TAB 3: Employee -->
         <section id="tab3" class="tab-content hidden space-y-6">
             <div class="bg-white p-6 rounded-lg shadow-md">
-                <h2 class="text-xl font-bold mb-4 text-blue-900 border-b pb-2">ผลงานรายพนักงาน</h2>
+                <div class="flex flex-wrap justify-between items-center mb-4 gap-2 border-b pb-2">
+                    <h2 class="text-xl font-bold text-blue-900">ผลงานรายพนักงาน</h2>
+                    <button id="exportTab3Btn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-md shadow text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-file-excel"></i> Export Excel
+                    </button>
+                </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200 text-sm">
                         <thead class="bg-gray-50">
@@ -174,12 +189,31 @@
                     </table>
                 </div>
             </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="text-lg font-bold mb-4 text-gray-700">ปริมาณงาน (Qty) ต่อพนักงานตามช่วงเวลา</h3>
+                    <div style="height: 260px;">
+                        <canvas id="empQtyChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="text-lg font-bold mb-4 text-gray-700">จำนวนรายการ (บรรทัด) ต่อพนักงานตามช่วงเวลา</h3>
+                    <div style="height: 260px;">
+                        <canvas id="empLineChart"></canvas>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- TAB 4: Target & KPI -->
         <section id="tab4" class="tab-content hidden space-y-6">
             <div class="bg-white p-6 rounded-lg shadow-md">
-                <h2 class="text-xl font-bold mb-4 text-blue-900 border-b pb-2">ความสามารถในการรองรับงาน (Cap Target & KPI)</h2>
+                <div class="flex flex-wrap justify-between items-center mb-4 gap-2 border-b pb-2">
+                    <h2 class="text-xl font-bold text-blue-900">ความสามารถในการรองรับงาน (Cap Target & KPI)</h2>
+                    <button id="exportTab4Btn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-md shadow text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-file-excel"></i> Export Excel
+                    </button>
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                     <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                         <p class="text-sm text-blue-800 font-semibold">Target รวม/วัน</p>
@@ -200,10 +234,15 @@
         <!-- TAB 5: Monthly Summary -->
         <section id="tab5" class="tab-content hidden space-y-6">
             <div class="bg-white p-6 rounded-lg shadow-md">
-                <h2 class="text-xl font-bold mb-4 text-blue-900 border-b pb-2 flex items-center gap-2">
-                    <i class="fa-solid fa-calendar-days"></i> สรุปผลงานรายเดือน (ดึงข้อมูลจาก Google Sheet)
-                </h2>
-                <div class="flex flex-wrap items-center gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
+                <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
+                    <h2 class="text-xl font-bold text-blue-900 flex items-center gap-2">
+                        <i class="fa-solid fa-calendar-days"></i> สรุปผลงานรายเดือน (ดึงข้อมูลจาก Google Sheet)
+                    </h2>
+                    <button id="exportTab5Btn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-md shadow text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-file-excel"></i> Export Excel
+                    </button>
+                </div>
+                <div class="flex flex-wrap items-center gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200 mt-2">
                     <label for="monthPicker" class="font-bold text-gray-700 flex items-center gap-1">
                         <i class="fa-solid fa-calendar-check text-blue-600"></i> เลือกเดือน:
                     </label>
@@ -240,6 +279,127 @@
         let pendingJsonData = [];
         let hourlyChartDInstance = null;
         let jobChartDInstance = null;
+        let empQtyChartInstance = null;
+        let empLineChartInstance = null;
+
+        // เก็บข้อมูลล่าสุดของแต่ละหน้าไว้ใช้สำหรับ Export Excel
+        let lastGroupedData = null;      // Tab1: ข้อมูลสรุปตาม ASN
+        let lastMatrixModelD = null;     // Tab2: ข้อมูล matrix รายชั่วโมง (Dashboard)
+        let lastMatrixModelM = null;     // Tab5: ข้อมูล matrix รายชั่วโมง (สรุปรายเดือน)
+        let lastMonthlyRecords = [];     // Tab5: ข้อมูลดิบที่ดึงจาก Google Sheet
+        let lastEmployeeSummary = [];    // Tab3: ตารางสรุปพนักงาน
+        let lastEmployeeHourly = null;   // Tab3: ข้อมูล Qty/รายการ ต่อพนักงานต่อชั่วโมง
+
+        const CHART_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16'];
+        function getSeriesColor(idx) { return CHART_COLORS[idx % CHART_COLORS.length]; }
+
+        function hourRangeLabel(h) {
+            const pad = n => String(n).padStart(2, '0');
+            return `${pad(h)}.00-${pad((h + 1) % 24)}.00`;
+        }
+
+        // ========================================================
+        // Export Excel (ใช้ร่วมกันทุกหน้า)
+        // ========================================================
+        function exportToExcel(sheets, fileNamePrefix) {
+            // sheets: [{ name: 'ชื่อชีท', data: [ {...}, {...} ] }]
+            const validSheets = (sheets || []).filter(s => s.data && s.data.length);
+            if (!validSheets.length) {
+                alert('ยังไม่มีข้อมูลให้ Export กรุณาประมวลผล/ดึงข้อมูลก่อนครับ');
+                return;
+            }
+            const wb = XLSX.utils.book_new();
+            validSheets.forEach(s => {
+                const ws = XLSX.utils.json_to_sheet(s.data);
+                XLSX.utils.book_append_sheet(wb, ws, s.name.substring(0, 31));
+            });
+            const stamp = new Date().toISOString().slice(0, 10);
+            XLSX.writeFile(wb, `${fileNamePrefix}_${stamp}.xlsx`);
+        }
+
+        document.getElementById('exportTab1Btn').addEventListener('click', function() {
+            if (!lastGroupedData) { alert('ยังไม่มีข้อมูลที่ประมวลผล กรุณาอัปโหลดไฟล์ก่อนครับ'); return; }
+            const data = Object.values(lastGroupedData).map(g => ({
+                'ASN': g.asn,
+                'งาน': g.job,
+                'Transaction': g.trans,
+                'Qty': g.qty,
+                'เวลาเริ่ม': g.min ? g.min.toLocaleString('th-TH') : '-',
+                'เวลาจบ': g.max ? g.max.toLocaleString('th-TH') : '0',
+                'สถานะ': getCompletionStatus(g.min, g.max)
+            }));
+            exportToExcel([{ name: 'ASN Summary', data }], 'ASN_Summary');
+        });
+
+        document.getElementById('exportTab2Btn').addEventListener('click', function() {
+            if (!lastMatrixModelD) { alert('ยังไม่มีข้อมูลที่ประมวลผล กรุณาอัปโหลดไฟล์ก่อนครับ'); return; }
+            const hourlyData = lastMatrixModelD.hourly.map((qty, i) => ({
+                'ช่วงเวลา': `${String(i).padStart(2, '0')}:00`,
+                'Qty': qty,
+                'จำนวนรายการ (บรรทัด)': lastMatrixModelD.lineCount[i]
+            }));
+            const jobData = Object.keys(lastMatrixModelD.jobs).map(job => ({
+                'งาน': job,
+                'Qty': lastMatrixModelD.jobs[job]
+            }));
+            exportToExcel([
+                { name: 'รายชั่วโมง', data: hourlyData },
+                { name: 'ตามประเภทงาน', data: jobData }
+            ], 'Dashboard_Summary');
+        });
+
+        document.getElementById('exportTab3Btn').addEventListener('click', function() {
+            if (!lastEmployeeSummary.length) { alert('ยังไม่มีข้อมูลที่ประมวลผล กรุณาอัปโหลดไฟล์ก่อนครับ'); return; }
+            const summaryData = lastEmployeeSummary;
+            const hourlyRows = [];
+            if (lastEmployeeHourly) {
+                lastEmployeeHourly.users.forEach(u => {
+                    for (let h = 0; h < 24; h++) {
+                        hourlyRows.push({
+                            'พนักงาน': u,
+                            'ช่วงเวลา': hourRangeLabel(h),
+                            'Qty': lastEmployeeHourly.qtyByUserHour[u][h],
+                            'จำนวนรายการ (บรรทัด)': lastEmployeeHourly.lineByUserHour[u][h]
+                        });
+                    }
+                });
+            }
+            exportToExcel([
+                { name: 'สรุปพนักงาน', data: summaryData },
+                { name: 'รายชั่วโมง', data: hourlyRows }
+            ], 'Employee_Performance');
+        });
+
+        document.getElementById('exportTab4Btn').addEventListener('click', function() {
+            const data = [{
+                'Target รวม/วัน': document.getElementById('kpiTarget').innerText,
+                'ทำได้จริง (Actual)': document.getElementById('kpiActual').innerText,
+                'บรรลุเป้าหมาย (%)': document.getElementById('kpiPercent').innerText
+            }];
+            exportToExcel([{ name: 'KPI', data }], 'KPI_Summary');
+        });
+
+        document.getElementById('exportTab5Btn').addEventListener('click', function() {
+            if (!lastMonthlyRecords.length) { alert('ยังไม่มีข้อมูลที่ดึงมา กรุณาเลือกเดือนแล้วกด "ดึงข้อมูล" ก่อนครับ'); return; }
+            const recordData = lastMonthlyRecords.map(r => ({
+                'ASN': r.asn,
+                'งาน': r.job,
+                'Qty': r.qty,
+                'พนักงาน': r.user,
+                'เวลาเริ่ม': r.rDate ? r.rDate.toLocaleString('th-TH') : '-',
+                'เวลาจบ': r.uDate ? r.uDate.toLocaleString('th-TH') : '0'
+            }));
+            const sheets = [{ name: 'ข้อมูลรายเดือน', data: recordData }];
+            if (lastMatrixModelM) {
+                const hourlyData = lastMatrixModelM.hourly.map((qty, i) => ({
+                    'ช่วงเวลา': `${String(i).padStart(2, '0')}:00`,
+                    'Qty': qty,
+                    'จำนวนรายการ (บรรทัด)': lastMatrixModelM.lineCount[i]
+                }));
+                sheets.push({ name: 'รายชั่วโมง', data: hourlyData });
+            }
+            exportToExcel(sheets, 'Monthly_Summary');
+        });
 
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -401,12 +561,16 @@
                 }
             });
 
+            lastGroupedData = grouped;
+
             renderSummaryCards(normalizedRows, grouped);
             renderPreviewTable(grouped);
             
             const model = buildMatrixModel(normalizedRows);
+            lastMatrixModelD = model;
             renderMatrixDashboard('D', model);
             renderEmployeeTable(normalizedRows);
+            renderEmployeeCharts(normalizedRows);
             renderKPI(normalizedRows);
 
             saveOnlineData(grouped, normalizedRows);
@@ -616,6 +780,7 @@
 
             const tbody = document.getElementById('employeeTableBody');
             tbody.innerHTML = '';
+            lastEmployeeSummary = [];
 
             Object.keys(empMap).forEach(user => {
                 const emp = empMap[user];
@@ -631,6 +796,65 @@
                     <td class="px-4 py-3 text-right font-bold text-green-600">${speed.toLocaleString()}</td>
                 `;
                 tbody.appendChild(tr);
+
+                lastEmployeeSummary.push({
+                    'พนักงาน': user,
+                    'จำนวน ASN': emp.asnSet.size,
+                    'จำนวนชิ้น (Qty)': emp.qty,
+                    'เวลารวม (นาที)': mins,
+                    'Speed (Qty/Hr)': speed
+                });
+            });
+        }
+
+        function renderEmployeeCharts(rows) {
+            const users = [...new Set(rows.map(r => r.user))];
+            const qtyByUserHour = {};
+            const lineByUserHour = {};
+            users.forEach(u => {
+                qtyByUserHour[u] = Array(24).fill(0);
+                lineByUserHour[u] = Array(24).fill(0);
+            });
+
+            rows.forEach(r => {
+                const h = r.rDate.getHours();
+                qtyByUserHour[r.user][h] += r.qty;
+                lineByUserHour[r.user][h] += 1;
+            });
+
+            lastEmployeeHourly = { users, qtyByUserHour, lineByUserHour };
+
+            const labels = Array.from({ length: 24 }, (_, i) => hourRangeLabel(i));
+
+            const qtyDatasets = users.map((u, idx) => ({
+                label: u,
+                data: qtyByUserHour[u],
+                borderColor: getSeriesColor(idx),
+                backgroundColor: getSeriesColor(idx),
+                tension: 0.3
+            }));
+            const lineDatasets = users.map((u, idx) => ({
+                label: u,
+                data: lineByUserHour[u],
+                borderColor: getSeriesColor(idx),
+                backgroundColor: getSeriesColor(idx),
+                tension: 0.3
+            }));
+
+            const ctxQ = document.getElementById('empQtyChart').getContext('2d');
+            if (empQtyChartInstance) empQtyChartInstance.destroy();
+            empQtyChartInstance = new Chart(ctxQ, {
+                type: 'line',
+                data: { labels, datasets: qtyDatasets },
+                options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false } }
+            });
+
+            const ctxL = document.getElementById('empLineChart').getContext('2d');
+            if (empLineChartInstance) empLineChartInstance.destroy();
+            empLineChartInstance = new Chart(ctxL, {
+                type: 'line',
+                data: { labels, datasets: lineDatasets },
+                options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false } }
             });
         }
 
@@ -744,7 +968,10 @@
                     uDate: r.closeDate ? new Date(r.closeDate) : null
                 })).filter(r => r.rDate && !isNaN(r.rDate.getTime()));
 
+                lastMonthlyRecords = normalized;
+
                 const model = buildMatrixModel(normalized);
+                lastMatrixModelM = model;
 
                 statusEl.innerText = `พบข้อมูล ${records.length} รายการในเดือนที่เลือก`;
                 document.getElementById('visualSectionM').classList.remove('hidden');
