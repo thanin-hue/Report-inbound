@@ -6,10 +6,14 @@
     <title>Warehouse Dashboard System (Merged Version)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- SheetJS CDN -->
+    <!-- SheetJS CDN (สำหรับอ่านไฟล์ Excel/CSV ที่อัปโหลด) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- ExcelJS CDN (สำหรับ export ไฟล์ Excel พร้อมฝังกราฟ) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js Datalabels Plugin CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -179,11 +183,17 @@
                         <canvas id="trendChartD"></canvas>
                     </div>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="bg-white p-6 rounded-lg shadow-md">
                         <h3 class="text-lg font-bold mb-4 text-gray-700">ปริมาณงานตามชั่วโมง</h3>
                         <div style="height: 200px;">
                             <canvas id="hourlyChartD"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-lg font-bold mb-4 text-gray-700">จำนวนรายการ (Transaction) ตามช่วงเวลา</h3>
+                        <div style="height: 200px;">
+                            <canvas id="lineCountChartD"></canvas>
                         </div>
                     </div>
                     <div class="bg-white p-6 rounded-lg shadow-md">
@@ -358,6 +368,11 @@
         const CHART_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16'];
         function getSeriesColor(idx) { return CHART_COLORS[idx % CHART_COLORS.length]; }
 
+        // ลงทะเบียน plugin แสดงตัวเลขบนกราฟ (ใช้กับกราฟวงกลมสัดส่วนงาน)
+        if (typeof ChartDataLabels !== 'undefined') {
+            Chart.register(ChartDataLabels);
+        }
+
         function hourRangeLabel(h) {
             const pad = n => String(n).padStart(2, '0');
             return `${pad(h)}.00-${pad((h + 1) % 24)}.00`;
@@ -465,25 +480,69 @@
         });
 
         // ========================================================
-        // Export Excel (ใช้ร่วมกันทุกหน้า)
+        // Export Excel (ใช้ร่วมกันทุกหน้า) — ใช้ ExcelJS เพื่อรองรับการฝังกราฟเป็นรูปภาพ
         // ========================================================
-        function exportToExcel(sheets, fileNamePrefix) {
+        async function exportToExcel(sheets, fileNamePrefix, chartCanvasIds) {
             // sheets: [{ name: 'ชื่อชีท', data: [ {...}, {...} ] }]
+            // chartCanvasIds: [{ canvasId: 'xxx', title: 'ชื่อกราฟ' }] (ไม่บังคับ)
             const validSheets = (sheets || []).filter(s => s.data && s.data.length);
-            if (!validSheets.length) {
+            const validCharts = (chartCanvasIds || []).filter(c => document.getElementById(c.canvasId));
+
+            if (!validSheets.length && !validCharts.length) {
                 alert('ยังไม่มีข้อมูลให้ Export กรุณาประมวลผล/ดึงข้อมูลก่อนครับ');
                 return;
             }
-            const wb = XLSX.utils.book_new();
+
+            const workbook = new ExcelJS.Workbook();
+
             validSheets.forEach(s => {
-                const ws = XLSX.utils.json_to_sheet(s.data);
-                XLSX.utils.book_append_sheet(wb, ws, s.name.substring(0, 31));
+                const ws = workbook.addWorksheet(s.name.substring(0, 31));
+                const headers = Object.keys(s.data[0]);
+                ws.addRow(headers);
+                ws.getRow(1).font = { bold: true };
+                ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5E7EB' } };
+
+                s.data.forEach(rowObj => {
+                    ws.addRow(headers.map(h => rowObj[h]));
+                });
+
+                headers.forEach((h, idx) => {
+                    ws.getColumn(idx + 1).width = Math.max(12, h.length + 4);
+                });
             });
+
+            if (validCharts.length) {
+                const chartSheet = workbook.addWorksheet('กราฟ');
+                let rowCursor = 1;
+                validCharts.forEach(c => {
+                    const canvas = document.getElementById(c.canvasId);
+                    const dataUrl = canvas.toDataURL('image/png');
+                    const imgId = workbook.addImage({ base64: dataUrl, extension: 'png' });
+
+                    chartSheet.getCell(rowCursor, 1).value = c.title || '';
+                    chartSheet.getCell(rowCursor, 1).font = { bold: true, size: 12 };
+                    chartSheet.addImage(imgId, {
+                        tl: { col: 0, row: rowCursor },
+                        ext: { width: 650, height: 320 }
+                    });
+                    rowCursor += 18;
+                });
+            }
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/octet-stream' });
             const stamp = new Date().toISOString().slice(0, 10);
-            XLSX.writeFile(wb, `${fileNamePrefix}_${stamp}.xlsx`);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${fileNamePrefix}_${stamp}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
 
-        document.getElementById('exportTab1Btn').addEventListener('click', function() {
+        document.getElementById('exportTab1Btn').addEventListener('click', async function() {
             if (!lastGroupedData) { alert('ยังไม่มีข้อมูลที่ประมวลผล กรุณาอัปโหลดไฟล์ก่อนครับ'); return; }
             const data = Object.values(lastGroupedData).map(g => ({
                 'ASN': g.asn,
@@ -494,27 +553,33 @@
                 'เวลาจบ': g.max ? g.max.toLocaleString('th-TH') : '0',
                 'สถานะ': getCompletionStatus(g.min, g.max)
             }));
-            exportToExcel([{ name: 'ASN Summary', data }], 'ASN_Summary');
+            await exportToExcel([{ name: 'ASN Summary', data }], 'ASN_Summary');
         });
 
-        document.getElementById('exportTab2Btn').addEventListener('click', function() {
+        document.getElementById('exportTab2Btn').addEventListener('click', async function() {
             if (!lastMatrixModelD) { alert('ยังไม่มีข้อมูลที่ประมวลผล กรุณาอัปโหลดไฟล์ก่อนครับ'); return; }
             const hourlyData = lastMatrixModelD.hourly.map((qty, i) => ({
-                'ช่วงเวลา': `${String(i).padStart(2, '0')}:00`,
+                'ช่วงเวลา': hourRangeLabel(i),
                 'Qty': qty,
                 'จำนวนรายการ (บรรทัด)': lastMatrixModelD.lineCount[i]
             }));
             const jobData = Object.keys(lastMatrixModelD.jobs).map(job => ({
                 'งาน': job,
-                'Qty': lastMatrixModelD.jobs[job]
+                'Qty': lastMatrixModelD.jobs[job],
+                'Transaction': (lastMatrixModelD.jobTrans && lastMatrixModelD.jobTrans[job]) || 0
             }));
-            exportToExcel([
+            await exportToExcel([
                 { name: 'รายชั่วโมง', data: hourlyData },
                 { name: 'ตามประเภทงาน', data: jobData }
-            ], 'Dashboard_Summary');
+            ], 'Dashboard_Summary', [
+                { canvasId: 'trendChartD', title: 'แนวโน้มปริมาณงาน (Qty) เทียบจำนวนรายการ (บรรทัด) ตามช่วงเวลา' },
+                { canvasId: 'hourlyChartD', title: 'ปริมาณงานตามชั่วโมง' },
+                { canvasId: 'lineCountChartD', title: 'จำนวนรายการ (Transaction) ตามช่วงเวลา' },
+                { canvasId: 'jobChartD', title: 'สัดส่วนงานตามประเภท' }
+            ]);
         });
 
-        document.getElementById('exportTab3Btn').addEventListener('click', function() {
+        document.getElementById('exportTab3Btn').addEventListener('click', async function() {
             if (!lastEmployeeSummary.length) { alert('ยังไม่มีข้อมูลที่ประมวลผล กรุณาอัปโหลดไฟล์ก่อนครับ'); return; }
             const summaryData = lastEmployeeSummary;
             const hourlyRows = [];
@@ -530,22 +595,25 @@
                     }
                 });
             }
-            exportToExcel([
+            await exportToExcel([
                 { name: 'สรุปพนักงาน', data: summaryData },
                 { name: 'รายชั่วโมง', data: hourlyRows }
-            ], 'Employee_Performance');
+            ], 'Employee_Performance', [
+                { canvasId: 'empQtyChart', title: 'ปริมาณงาน (Qty) ต่อพนักงานตามช่วงเวลา' },
+                { canvasId: 'empLineChart', title: 'จำนวนรายการ (บรรทัด) ต่อพนักงานตามช่วงเวลา' }
+            ]);
         });
 
-        document.getElementById('exportTab4Btn').addEventListener('click', function() {
+        document.getElementById('exportTab4Btn').addEventListener('click', async function() {
             const data = [{
                 'Target รวม/วัน': document.getElementById('kpiTarget').innerText,
                 'ทำได้จริง (Actual)': document.getElementById('kpiActual').innerText,
                 'บรรลุเป้าหมาย (%)': document.getElementById('kpiPercent').innerText
             }];
-            exportToExcel([{ name: 'KPI', data }], 'KPI_Summary');
+            await exportToExcel([{ name: 'KPI', data }], 'KPI_Summary');
         });
 
-        document.getElementById('exportTab5Btn').addEventListener('click', function() {
+        document.getElementById('exportTab5Btn').addEventListener('click', async function() {
             if (!lastMonthlyRecords.length) { alert('ยังไม่มีข้อมูลที่ดึงมา กรุณาเลือกเดือนแล้วกด "ดึงข้อมูล" ก่อนครับ'); return; }
             const recordData = lastMonthlyRecords.map(r => ({
                 'ASN': r.asn,
@@ -556,15 +624,20 @@
                 'เวลาจบ': r.uDate ? r.uDate.toLocaleString('th-TH') : '0'
             }));
             const sheets = [{ name: 'ข้อมูลรายเดือน', data: recordData }];
+            const chartList = [];
             if (lastMatrixModelM) {
                 const hourlyData = lastMatrixModelM.hourly.map((qty, i) => ({
-                    'ช่วงเวลา': `${String(i).padStart(2, '0')}:00`,
+                    'ช่วงเวลา': hourRangeLabel(i),
                     'Qty': qty,
                     'จำนวนรายการ (บรรทัด)': lastMatrixModelM.lineCount[i]
                 }));
                 sheets.push({ name: 'รายชั่วโมง', data: hourlyData });
+                chartList.push(
+                    { canvasId: 'dailyComboChartM', title: 'ปริมาณสินค้าเทียบจำนวน ASN รายวัน' },
+                    { canvasId: 'jobPieChartM', title: 'สัดส่วนประเภทงานในเดือนนี้' }
+                );
             }
-            exportToExcel(sheets, 'Monthly_Summary');
+            await exportToExcel(sheets, 'Monthly_Summary', chartList);
         });
 
         function switchTab(tabId) {
@@ -611,7 +684,7 @@
             reader.readAsArrayBuffer(file);
         });
 
-        const JOB_OPTIONS = ['Vender', 'HWH', 'DCR', 'งานโอน', 'อื่นๆ'];
+        const JOB_OPTIONS = ['Vender', 'HWH', 'DCR', 'งานโอน', 'Case', 'อื่นๆ'];
 
         function showJobNameForm(jsonData) {
             // แตก ASN ที่พบทั้งหมดในไฟล์ ให้ผู้ใช้เลือกชื่องานแยกทีละ ASN
@@ -638,7 +711,8 @@
                 const select = row.querySelector('.job-select');
                 const otherInput = row.querySelector('.job-other-input');
                 select.addEventListener('change', function() {
-                    if (select.value === 'อื่นๆ') {
+                    if (select.value === 'อื่นๆ' || select.value === 'Case') {
+                        otherInput.placeholder = select.value === 'Case' ? 'ระบุรายละเอียด Case' : 'ระบุชื่องาน';
                         otherInput.classList.remove('hidden');
                     } else {
                         otherInput.classList.add('hidden');
@@ -661,13 +735,21 @@
                 const select = row.querySelector('.job-select');
                 const otherInput = row.querySelector('.job-other-input');
                 const asn = select.dataset.asn;
+                const category = select.value;
 
-                let val = select.value;
-                if (val === 'อื่นๆ') {
-                    val = otherInput.value.trim();
+                let val = category;
+                if (!category) {
+                    hasEmpty = true;
+                } else if (category === 'อื่นๆ' || category === 'Case') {
+                    const detail = otherInput.value.trim();
+                    if (!detail) {
+                        hasEmpty = true;
+                        val = '';
+                    } else {
+                        val = (category === 'Case') ? `Case: ${detail}` : detail;
+                    }
                 }
 
-                if (!val) hasEmpty = true;
                 jobMap[asn] = val || '-';
             });
 
@@ -803,20 +885,30 @@
             document.getElementById('previewSection').classList.remove('hidden');
         }
 
+        // งานประเภท "Case" ให้รวมเป็นก้อนเดียวในกราฟสัดส่วนงาน (ไม่แยกตามรายละเอียด)
+        // ส่วนงานประเภท "อื่นๆ" ยังคงแยกตามรายละเอียดที่กรอกเหมือนเดิม
+        function jobChartBucket(job) {
+            if (job && job.indexOf('Case') === 0) return 'Case';
+            return job;
+        }
+
         function buildMatrixModel(rows) {
             const hourly = Array(24).fill(0);
             const lineCount = Array(24).fill(0);
             const jobs = {};
+            const jobTrans = {};
 
             rows.forEach(r => {
                 const hour = r.rDate.getHours();
                 hourly[hour] += r.qty;
                 lineCount[hour] += 1;
 
-                jobs[r.job] = (jobs[r.job] || 0) + r.qty;
+                const bucket = jobChartBucket(r.job);
+                jobs[bucket] = (jobs[bucket] || 0) + r.qty;
+                jobTrans[bucket] = (jobTrans[bucket] || 0) + 1;
             });
 
-            return { hourly, lineCount, jobs };
+            return { hourly, lineCount, jobs, jobTrans };
         }
 
         function renderMatrixDashboard(prefix, model) {
@@ -825,10 +917,13 @@
 
             let html = '<div class="grid grid-cols-12 gap-2 text-center text-xs">';
             model.hourly.forEach((qty, hr) => {
+                // ตัดช่วงเวลา 00.00-07.00 ออก ถ้าไม่มีงานเลยในชั่วโมงนั้น
+                if (hr <= 7 && qty === 0) return;
+
                 const bg = qty > 0 ? 'bg-blue-100 border-blue-300 text-blue-900' : 'bg-gray-50 text-gray-400';
                 html += `
                     <div class="p-2 border rounded ${bg} matrix-cell">
-                        <div class="font-bold">${String(hr).padStart(2, '0')}:00</div>
+                        <div class="font-bold">${hourRangeLabel(hr)}</div>
                         <div class="text-sm font-semibold mt-1">${qty.toLocaleString()}</div>
                     </div>
                 `;
@@ -842,15 +937,18 @@
         }
 
         let trendChartDInstance = null;
+        let lineCountChartDInstance = null;
 
         function renderCharts(model) {
+            const hourLabels = Array.from({ length: 24 }, (_, i) => hourRangeLabel(i));
+
             const ctxT = document.getElementById('trendChartD').getContext('2d');
             if (trendChartDInstance) trendChartDInstance.destroy();
 
             trendChartDInstance = new Chart(ctxT, {
                 type: 'line',
                 data: {
-                    labels: Array.from({length: 24}, (_, i) => `${String(i).padStart(2, '0')}:00`),
+                    labels: hourLabels,
                     datasets: [
                         {
                             label: 'ปริมาณงาน (Qty)',
@@ -874,6 +972,7 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
+                    plugins: { datalabels: { display: false } },
                     scales: {
                         y: { type: 'linear', position: 'left', title: { display: true, text: 'Qty' }, beginAtZero: true },
                         y1: { type: 'linear', position: 'right', title: { display: true, text: 'จำนวนรายการ' }, beginAtZero: true, grid: { drawOnChartArea: false } }
@@ -887,29 +986,74 @@
             hourlyChartDInstance = new Chart(ctxH, {
                 type: 'bar',
                 data: {
-                    labels: Array.from({length: 24}, (_, i) => `${String(i).padStart(2, '0')}:00`),
+                    labels: hourLabels,
                     datasets: [{
                         label: 'จำนวน Qty',
                         data: model.hourly,
                         backgroundColor: '#3b82f6'
                     }]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: false } } }
+            });
+
+            const ctxL = document.getElementById('lineCountChartD').getContext('2d');
+            if (lineCountChartDInstance) lineCountChartDInstance.destroy();
+
+            lineCountChartDInstance = new Chart(ctxL, {
+                type: 'bar',
+                data: {
+                    labels: hourLabels,
+                    datasets: [{
+                        label: 'จำนวนรายการ (Transaction)',
+                        data: model.lineCount,
+                        backgroundColor: '#f59e0b'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: false } } }
             });
 
             const ctxJ = document.getElementById('jobChartD').getContext('2d');
             if (jobChartDInstance) jobChartDInstance.destroy();
 
+            const jobLabels = Object.keys(model.jobs);
+            const jobQtyValues = jobLabels.map(j => model.jobs[j]);
+            const jobTransValues = jobLabels.map(j => model.jobTrans[j] || 0);
+            const totalJobQty = jobQtyValues.reduce((a, b) => a + b, 0);
+
             jobChartDInstance = new Chart(ctxJ, {
                 type: 'doughnut',
                 data: {
-                    labels: Object.keys(model.jobs),
+                    labels: jobLabels,
                     datasets: [{
-                        data: Object.values(model.jobs),
-                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b']
+                        data: jobQtyValues,
+                        backgroundColor: jobLabels.map((_, idx) => getSeriesColor(idx))
                     }]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    const qty = ctx.raw;
+                                    const pct = totalJobQty ? ((qty / totalJobQty) * 100).toFixed(1) : 0;
+                                    const trans = jobTransValues[ctx.dataIndex];
+                                    return `${ctx.label}: ${pct}% | Qty: ${qty.toLocaleString()} | Transaction: ${trans.toLocaleString()}`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            color: '#fff',
+                            font: { weight: 'bold', size: 10 },
+                            formatter: function(value, ctx) {
+                                const pct = totalJobQty ? ((value / totalJobQty) * 100).toFixed(1) : 0;
+                                const trans = jobTransValues[ctx.dataIndex];
+                                return [`${pct}%`, `Qty: ${value.toLocaleString()}`, `Trans: ${trans.toLocaleString()}`];
+                            }
+                        }
+                    }
+                }
             });
         }
 
@@ -993,7 +1137,7 @@
             empQtyChartInstance = new Chart(ctxQ, {
                 type: 'line',
                 data: { labels, datasets: qtyDatasets },
-                options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false } }
+                options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { datalabels: { display: false } } }
             });
 
             const ctxL = document.getElementById('empLineChart').getContext('2d');
@@ -1001,7 +1145,7 @@
             empLineChartInstance = new Chart(ctxL, {
                 type: 'line',
                 data: { labels, datasets: lineDatasets },
-                options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false } }
+                options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { datalabels: { display: false } } }
             });
         }
 
@@ -1196,6 +1340,7 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
+                    plugins: { datalabels: { display: false } },
                     scales: {
                         y: { type: 'linear', position: 'left', title: { display: true, text: 'Qty' }, beginAtZero: true },
                         y1: { type: 'linear', position: 'right', title: { display: true, text: 'จำนวน ASN' }, beginAtZero: true, grid: { drawOnChartArea: false } }
@@ -1219,7 +1364,7 @@
                         backgroundColor: jobLabels.map((_, idx) => getSeriesColor(idx))
                     }]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: false } } }
             });
         }
     </script>
