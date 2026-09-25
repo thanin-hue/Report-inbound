@@ -957,17 +957,33 @@
                 return { labels, data };
             }
 
+            // กรองสำหรับกราฟแนวโน้ม (มี 2 เส้น): แสดงชั่วโมงถ้าอยู่ในช่วง 08-17 หรือมีงานในเส้นใดเส้นหนึ่ง
+            function filterHourSeriesMulti(arrays) {
+                const labels = [];
+                const dataSets = arrays.map(() => []);
+                for (let h = 0; h < 24; h++) {
+                    const isProtected = h >= 8 && h <= 17;
+                    const hasData = arrays.some(arr => arr[h] !== 0);
+                    if (!isProtected && !hasData) continue;
+                    labels.push(hourLabels[h]);
+                    arrays.forEach((arr, idx) => dataSets[idx].push(arr[h]));
+                }
+                return { labels, dataSets };
+            }
+
+            const trendFiltered = filterHourSeriesMulti([model.hourly, model.lineCount]);
+
             const ctxT = document.getElementById('trendChartD').getContext('2d');
             if (trendChartDInstance) trendChartDInstance.destroy();
 
             trendChartDInstance = new Chart(ctxT, {
                 type: 'line',
                 data: {
-                    labels: hourLabels,
+                    labels: trendFiltered.labels,
                     datasets: [
                         {
                             label: 'ปริมาณงาน (Qty)',
-                            data: model.hourly,
+                            data: trendFiltered.dataSets[0],
                             borderColor: '#3b82f6',
                             backgroundColor: '#3b82f6',
                             yAxisID: 'y',
@@ -975,7 +991,7 @@
                         },
                         {
                             label: 'จำนวนรายการ (บรรทัด)',
-                            data: model.lineCount,
+                            data: trendFiltered.dataSets[1],
                             borderColor: '#f59e0b',
                             backgroundColor: '#f59e0b',
                             yAxisID: 'y1',
