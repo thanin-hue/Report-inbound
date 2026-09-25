@@ -198,7 +198,7 @@
                     </div>
                     <div class="bg-white p-6 rounded-lg shadow-md">
                         <h3 class="text-lg font-bold mb-4 text-gray-700">สัดส่วนงานตามประเภท</h3>
-                        <div style="height: 200px;">
+                        <div style="height: 260px;">
                             <canvas id="jobChartD"></canvas>
                         </div>
                     </div>
@@ -1032,7 +1032,18 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    layout: {
+                        padding: 16
+                    },
                     plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                boxWidth: 12,
+                                padding: 10,
+                                font: { size: 11 }
+                            }
+                        },
                         tooltip: {
                             callbacks: {
                                 label: function(ctx) {
@@ -1044,12 +1055,17 @@
                             }
                         },
                         datalabels: {
-                            color: '#fff',
-                            font: { weight: 'bold', size: 10 },
+                            color: '#374151',
+                            anchor: 'end',
+                            align: 'end',
+                            offset: 8,
+                            clamp: true,
+                            font: { weight: 'bold', size: 11 },
                             formatter: function(value, ctx) {
-                                const pct = totalJobQty ? ((value / totalJobQty) * 100).toFixed(1) : 0;
-                                const trans = jobTransValues[ctx.dataIndex];
-                                return [`${pct}%`, `Qty: ${value.toLocaleString()}`, `Trans: ${trans.toLocaleString()}`];
+                                const pct = totalJobQty ? (value / totalJobQty) * 100 : 0;
+                                // ซ่อน label ของชิ้นที่เล็กมาก (ต่ำกว่า 4%) เพื่อไม่ให้ทับซ้อนกัน
+                                if (pct < 4) return '';
+                                return `${pct.toFixed(1)}%`;
                             }
                         }
                     }
