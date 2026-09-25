@@ -746,7 +746,7 @@
                         hasEmpty = true;
                         val = '';
                     } else {
-                        val = (category === 'Case') ? `Case: ${detail}` : detail;
+                        val = `${category}: ${detail}`;
                     }
                 }
 
@@ -885,11 +885,13 @@
             document.getElementById('previewSection').classList.remove('hidden');
         }
 
-        // งานประเภท "Case" ให้รวมเป็นก้อนเดียวในกราฟสัดส่วนงาน (ไม่แยกตามรายละเอียด)
-        // ส่วนงานประเภท "อื่นๆ" ยังคงแยกตามรายละเอียดที่กรอกเหมือนเดิม
+        // กราฟสรุปประเภทงาน (ทั้งหน้า Dashboard และหน้าสรุปรายเดือน) ให้สรุปตาม
+        // "ประเภทหลัก" ที่ตั้งค่าไว้ในหน้ากรอกข้อมูลเท่านั้น (Vender, HWH, DCR, งานโอน, Case, อื่นๆ)
+        // ไม่แยกย่อยตามรายละเอียดที่กรอกเอง (รายละเอียดถูกเก็บเป็น "ประเภทหลัก: รายละเอียด")
         function jobChartBucket(job) {
-            if (job && job.indexOf('Case') === 0) return 'Case';
-            return job;
+            if (!job) return job;
+            const idx = job.indexOf(':');
+            return idx > -1 ? job.substring(0, idx).trim() : job;
         }
 
         function buildMatrixModel(rows) {
@@ -942,6 +944,19 @@
         function renderCharts(model) {
             const hourLabels = Array.from({ length: 24 }, (_, i) => hourRangeLabel(i));
 
+            // ตัดชั่วโมงที่ไม่มีงานออก ยกเว้นช่วง 08:00-17:00 ที่ต้องแสดงเสมอ
+            function filterHourSeries(dataArray) {
+                const labels = [];
+                const data = [];
+                for (let h = 0; h < 24; h++) {
+                    const isProtected = h >= 8 && h <= 17;
+                    if (!isProtected && dataArray[h] === 0) continue;
+                    labels.push(hourLabels[h]);
+                    data.push(dataArray[h]);
+                }
+                return { labels, data };
+            }
+
             const ctxT = document.getElementById('trendChartD').getContext('2d');
             if (trendChartDInstance) trendChartDInstance.destroy();
 
@@ -980,32 +995,34 @@
                 }
             });
 
+            const hourlyFiltered = filterHourSeries(model.hourly);
             const ctxH = document.getElementById('hourlyChartD').getContext('2d');
             if (hourlyChartDInstance) hourlyChartDInstance.destroy();
 
             hourlyChartDInstance = new Chart(ctxH, {
                 type: 'bar',
                 data: {
-                    labels: hourLabels,
+                    labels: hourlyFiltered.labels,
                     datasets: [{
                         label: 'จำนวน Qty',
-                        data: model.hourly,
+                        data: hourlyFiltered.data,
                         backgroundColor: '#3b82f6'
                     }]
                 },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: false } } }
             });
 
+            const lineCountFiltered = filterHourSeries(model.lineCount);
             const ctxL = document.getElementById('lineCountChartD').getContext('2d');
             if (lineCountChartDInstance) lineCountChartDInstance.destroy();
 
             lineCountChartDInstance = new Chart(ctxL, {
                 type: 'bar',
                 data: {
-                    labels: hourLabels,
+                    labels: lineCountFiltered.labels,
                     datasets: [{
                         label: 'จำนวนรายการ (Transaction)',
-                        data: model.lineCount,
+                        data: lineCountFiltered.data,
                         backgroundColor: '#f59e0b'
                     }]
                 },
