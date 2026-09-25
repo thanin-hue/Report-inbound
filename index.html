@@ -198,7 +198,7 @@
                     </div>
                     <div class="bg-white p-6 rounded-lg shadow-md">
                         <h3 class="text-lg font-bold mb-4 text-gray-700">สัดส่วนงานตามประเภท</h3>
-                        <div style="height: 260px;">
+                        <div style="height: 320px;">
                             <canvas id="jobChartD"></canvas>
                         </div>
                     </div>
@@ -326,7 +326,7 @@
                     </div>
                     <div class="bg-white p-6 rounded-lg shadow-md">
                         <h3 class="text-lg font-bold mb-4 text-gray-700">สัดส่วนประเภทงานในเดือนนี้</h3>
-                        <div style="height: 280px;">
+                        <div style="height: 340px;">
                             <canvas id="jobPieChartM"></canvas>
                         </div>
                     </div>
@@ -1041,7 +1041,25 @@
                             labels: {
                                 boxWidth: 12,
                                 padding: 10,
-                                font: { size: 11 }
+                                font: { size: 11 },
+                                generateLabels: function(chart) {
+                                    const data = chart.data;
+                                    if (!data.labels || !data.labels.length) return [];
+                                    const dataset = data.datasets[0];
+
+                                    return data.labels.map((label, i) => {
+                                        const value = dataset.data[i];
+                                        const pct = totalJobQty ? ((value / totalJobQty) * 100).toFixed(1) : 0;
+                                        const trans = jobTransValues[i];
+                                        return {
+                                            text: `${label}  (${pct}%)  |  Qty: ${value.toLocaleString()}  |  Trans: ${trans.toLocaleString()}`,
+                                            fillStyle: dataset.backgroundColor[i],
+                                            strokeStyle: dataset.backgroundColor[i],
+                                            hidden: false,
+                                            index: i
+                                        };
+                                    });
+                                }
                             }
                         },
                         tooltip: {
@@ -1368,6 +1386,8 @@
             const model = buildMatrixModel(records);
             const jobLabels = Object.keys(model.jobs);
             const jobValues = jobLabels.map(j => model.jobs[j]);
+            const jobTransValuesM = jobLabels.map(j => model.jobTrans[j] || 0);
+            const totalJobQtyM = jobValues.reduce((a, b) => a + b, 0);
 
             const ctxPie = document.getElementById('jobPieChartM').getContext('2d');
             if (jobPieChartMInstance) jobPieChartMInstance.destroy();
@@ -1380,7 +1400,62 @@
                         backgroundColor: jobLabels.map((_, idx) => getSeriesColor(idx))
                     }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: false } } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: { padding: 16 },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                boxWidth: 12,
+                                padding: 10,
+                                font: { size: 11 },
+                                generateLabels: function(chart) {
+                                    const data = chart.data;
+                                    if (!data.labels || !data.labels.length) return [];
+                                    const dataset = data.datasets[0];
+
+                                    return data.labels.map((label, i) => {
+                                        const value = dataset.data[i];
+                                        const pct = totalJobQtyM ? ((value / totalJobQtyM) * 100).toFixed(1) : 0;
+                                        const trans = jobTransValuesM[i];
+                                        return {
+                                            text: `${label}  (${pct}%)  |  Qty: ${value.toLocaleString()}  |  Trans: ${trans.toLocaleString()}`,
+                                            fillStyle: dataset.backgroundColor[i],
+                                            strokeStyle: dataset.backgroundColor[i],
+                                            hidden: false,
+                                            index: i
+                                        };
+                                    });
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    const qty = ctx.raw;
+                                    const pct = totalJobQtyM ? ((qty / totalJobQtyM) * 100).toFixed(1) : 0;
+                                    const trans = jobTransValuesM[ctx.dataIndex];
+                                    return `${ctx.label}: ${pct}% | Qty: ${qty.toLocaleString()} | Transaction: ${trans.toLocaleString()}`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            color: '#374151',
+                            anchor: 'end',
+                            align: 'end',
+                            offset: 8,
+                            clamp: true,
+                            font: { weight: 'bold', size: 11 },
+                            formatter: function(value, ctx) {
+                                const pct = totalJobQtyM ? (value / totalJobQtyM) * 100 : 0;
+                                if (pct < 4) return '';
+                                return `${pct.toFixed(1)}%`;
+                            }
+                        }
+                    }
+                }
             });
         }
     </script>
