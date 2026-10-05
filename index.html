@@ -623,7 +623,23 @@
                 'เวลาเริ่ม': r.rDate ? r.rDate.toLocaleString('th-TH') : '-',
                 'เวลาจบ': r.uDate ? r.uDate.toLocaleString('th-TH') : '0'
             }));
-            const sheets = [{ name: 'ข้อมูลรายเดือน', data: recordData }];
+
+            // สรุปตาม ASN พร้อมสถานะจบงานภายในวัน (เดิมมีแต่ข้อมูลดิบรายแถว ไม่มีสถานะ)
+            const groupedM = groupByAsn(lastMonthlyRecords);
+            const asnSummaryData = Object.values(groupedM).map(g => ({
+                'ASN': g.asn,
+                'งาน': g.job,
+                'Transaction': g.trans,
+                'Qty': g.qty,
+                'เวลาเริ่ม': g.min ? g.min.toLocaleString('th-TH') : '-',
+                'เวลาจบ': g.max ? g.max.toLocaleString('th-TH') : '0',
+                'สถานะ': getCompletionStatus(g.min, g.max)
+            }));
+
+            const sheets = [
+                { name: 'สรุปตาม ASN', data: asnSummaryData },
+                { name: 'ข้อมูลรายเดือน', data: recordData }
+            ];
             const chartList = [];
             if (lastMatrixModelM) {
                 const hourlyData = lastMatrixModelM.hourly.map((qty, i) => ({
