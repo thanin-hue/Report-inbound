@@ -1183,18 +1183,27 @@
 
             lastEmployeeHourly = { users, qtyByUserHour, lineByUserHour };
 
-            const labels = Array.from({ length: 24 }, (_, i) => hourRangeLabel(i));
+            const hourLabelsFull = Array.from({ length: 24 }, (_, i) => hourRangeLabel(i));
+
+            // ตัดชั่วโมงที่ไม่มีงานเลยทุกคนออก ยกเว้นช่วง 08.00-17.00 ที่ต้องแสดงเสมอ
+            const keepHours = [];
+            for (let h = 0; h < 24; h++) {
+                const isProtected = h >= 8 && h <= 17;
+                const hasData = users.some(u => qtyByUserHour[u][h] !== 0 || lineByUserHour[u][h] !== 0);
+                if (isProtected || hasData) keepHours.push(h);
+            }
+            const labels = keepHours.map(h => hourLabelsFull[h]);
 
             const qtyDatasets = users.map((u, idx) => ({
                 label: u,
-                data: qtyByUserHour[u],
+                data: keepHours.map(h => qtyByUserHour[u][h]),
                 borderColor: getSeriesColor(idx),
                 backgroundColor: getSeriesColor(idx),
                 tension: 0.3
             }));
             const lineDatasets = users.map((u, idx) => ({
                 label: u,
-                data: lineByUserHour[u],
+                data: keepHours.map(h => lineByUserHour[u][h]),
                 borderColor: getSeriesColor(idx),
                 backgroundColor: getSeriesColor(idx),
                 tension: 0.3
