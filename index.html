@@ -166,6 +166,43 @@
             </div>
 
             <div id="visualSectionD" class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p class="text-sm text-blue-800 font-semibold">จำนวน ASN ทั้งหมด</p>
+                        <p id="dSummaryAsn" class="text-2xl font-bold text-blue-900">0</p>
+                    </div>
+                    <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <p class="text-sm text-green-800 font-semibold">ASN จบภายในวัน</p>
+                        <p id="dSummaryCompleted" class="text-2xl font-bold text-green-900">0</p>
+                    </div>
+                    <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <p class="text-sm text-red-800 font-semibold">ASN ไม่จบภายในวัน</p>
+                        <p id="dSummaryNotCompleted" class="text-2xl font-bold text-red-900">0</p>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="text-lg font-bold mb-4 text-gray-700">จำนวน ASN ที่ไม่จบภายในวัน แยกตามประเภท HWH และ งานโอน</h3>
+                    <table class="min-w-full divide-y divide-gray-200 text-sm max-w-md">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left font-bold text-gray-600">ประเภทงาน</th>
+                                <th class="px-4 py-2 text-right font-bold text-gray-600">จำนวน ASN ที่ไม่จบภายในวัน</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <tr>
+                                <td class="px-4 py-3 font-semibold">HWH</td>
+                                <td id="dHwhNotCompletedCount" class="px-4 py-3 text-right font-bold text-red-600">0</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-semibold">งานโอน</td>
+                                <td id="dTransferNotCompletedCount" class="px-4 py-3 text-right font-bold text-red-600">0</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
                 <div class="bg-white p-6 rounded-lg shadow-md">
                     <div class="flex flex-wrap justify-between items-center mb-4 gap-2 border-b pb-2">
                         <h2 class="text-xl font-bold text-blue-900">สรุปจำนวนสินค้าตามช่วงเวลา (Daily)</h2>
@@ -423,6 +460,36 @@
             return grouped;
         }
 
+        // สรุปจำนวน ASN รายวันในหน้า Dashboard: นับรวมทุกประเภท
+        // และแยกตารางย่อยสำหรับ ASN ประเภท HWH และ งานโอน ที่ "ไม่จบภายในวัน" โดยเฉพาะ
+        function renderDashboardSummary(rows) {
+            const grouped = groupByAsn(rows);
+            const asnList = Object.values(grouped);
+
+            let totalAsn = 0, completed = 0, notCompleted = 0;
+            let hwhNotCompleted = 0, transferNotCompleted = 0;
+
+            asnList.forEach(g => {
+                totalAsn++;
+                const status = getCompletionStatus(g.min, g.max);
+
+                if (status === 'จบภายในวัน') {
+                    completed++;
+                } else {
+                    notCompleted++;
+                    const bucket = jobChartBucket(g.job);
+                    if (bucket === 'HWH') hwhNotCompleted++;
+                    else if (bucket === 'งานโอน') transferNotCompleted++;
+                }
+            });
+
+            document.getElementById('dSummaryAsn').innerText = totalAsn.toLocaleString();
+            document.getElementById('dSummaryCompleted').innerText = completed.toLocaleString();
+            document.getElementById('dSummaryNotCompleted').innerText = notCompleted.toLocaleString();
+            document.getElementById('dHwhNotCompletedCount').innerText = hwhNotCompleted.toLocaleString();
+            document.getElementById('dTransferNotCompletedCount').innerText = transferNotCompleted.toLocaleString();
+        }
+
         document.getElementById('fetchDashboardBtn').addEventListener('click', async function() {
             const day = document.getElementById('dashDayInput').value;
             const month = document.getElementById('dashMonthInput').value;
@@ -472,6 +539,7 @@
                 statusEl.innerText = `พบข้อมูล ${records.length} รายการ (${scopeLabel})`;
                 renderMatrixDashboard('D', model);
                 renderCharts(model);
+                renderDashboardSummary(normalized);
 
             } catch (err) {
                 console.error('Fetch Error:', err);
@@ -814,6 +882,7 @@
             const model = buildMatrixModel(normalizedRows);
             lastMatrixModelD = model;
             renderMatrixDashboard('D', model);
+            renderDashboardSummary(normalizedRows);
             renderEmployeeTable(normalizedRows);
             renderEmployeeCharts(normalizedRows);
             renderKPI(normalizedRows);
